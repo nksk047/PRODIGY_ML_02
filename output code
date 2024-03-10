@@ -1,0 +1,65 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.metrics import silhouette_samples, silhouette_score
+from yellowbrick.cluster import SilhouetteVisualizer
+
+# Generate synthetic data
+np.random.seed(42)
+num_samples = 200
+age = np.random.randint(18, 70, size=num_samples)
+annual_income = np.random.randint(20000, 120000, size=num_samples)
+spending_score = np.random.randint(1, 100, size=num_samples)
+
+data = {'Age': age, 'AnnualIncome': annual_income, 'SpendingScore': spending_score}
+customer_data = pd.DataFrame(data)
+
+# Select relevant features for clustering
+features = customer_data[['Age', 'AnnualIncome', 'SpendingScore']]
+
+# Standardize the features
+scaler = StandardScaler()
+features_scaled = scaler.fit_transform(features)
+
+# Determine the optimal number of clusters using silhouette analysis
+range_n_clusters = [2, 3, 4, 5, 6, 7, 8]
+silhouette_avg_list = []
+
+for num_clusters in range_n_clusters:
+    kmeans = KMeans(n_clusters=num_clusters, random_state=42)
+    cluster_labels = kmeans.fit_predict(features_scaled)
+    
+    silhouette_avg = silhouette_score(features_scaled, cluster_labels)
+    silhouette_avg_list.append(silhouette_avg)
+
+optimal_clusters = range_n_clusters[silhouette_avg_list.index(max(silhouette_avg_list))]
+
+# Visualize silhouette scores
+visualizer = SilhouetteVisualizer(KMeans(optimal_clusters, random_state=42))
+visualizer.fit(features_scaled)
+visualizer.show()
+
+# Apply K-Means clustering with the optimal number of clusters
+kmeans = KMeans(n_clusters=optimal_clusters, random_state=42)
+customer_data['Cluster'] = kmeans.fit_predict(features_scaled)
+
+# Visualize the results (3D projection using PCA for better interpretation)
+pca = PCA(n_components=3)
+features_3d = pca.fit_transform(features_scaled)
+
+fig = plt.figure(figsize=(10, 8))
+ax = fig.add_subplot(111, projection='3d')
+scatter = ax.scatter(features_3d[:, 0], features_3d[:, 1], features_3d[:, 2], c=customer_data['Cluster'], cmap='viridis', s=50)
+ax.set_title(f'K-Means Clustering of Customers (Optimal Clusters: {optimal_clusters})')
+ax.set_xlabel('Principal Component 1')
+ax.set_ylabel('Principal Component 2')
+ax.set_zlabel('Principal Component 3')
+
+# Add a legend
+legend = ax.legend(*scatter.legend_elements(), title="Clusters")
+ax.add_artist(legend)
+
+plt.show()
